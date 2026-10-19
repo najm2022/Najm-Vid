@@ -8,6 +8,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.os.PowerManager
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
@@ -69,7 +70,9 @@ class DownloadService : Service() {
         val platform = VideoRules.platform(url)
         val workDir = File(cacheDir, "downloads/$id")
         processId = id
+        val wakeLock = getSystemService(PowerManager::class.java).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "NajmVid:download")
         try {
+            wakeLock.acquire(3 * 60 * 60 * 1000L)
             check(workDir.mkdirs()) { "تعذر إنشاء مجلد التحميل المؤقت" }
             progress("جارٍ تهيئة محرك التحميل", -1)
             DownloadEngine.prepare(applicationContext)
@@ -112,6 +115,7 @@ class DownloadService : Service() {
             complete(id, "فشل التحميل؛ افتح التطبيق لعرض السبب", appIntent())
         } finally {
             processId = null
+            if (wakeLock.isHeld) wakeLock.release()
             workDir.deleteRecursively()
         }
     }
