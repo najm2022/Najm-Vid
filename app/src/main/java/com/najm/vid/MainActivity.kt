@@ -19,7 +19,7 @@ import java.io.File
 
 class MainActivity : AppCompatActivity() {
 
-    private var progressDialog: AlertDialog? = null
+    private var statusDialog: AlertDialog? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -45,14 +45,14 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun showLoading(message: String) {
-        progressDialog?.dismiss()
-        progressDialog = AlertDialog.Builder(this)
+    private fun showStatus(msg: String) {
+        statusDialog?.dismiss()
+        statusDialog = AlertDialog.Builder(this)
             .setTitle("Najm Vid ⚡")
-            .setMessage(message)
+            .setMessage(msg)
             .setCancelable(false)
             .create()
-        progressDialog?.show()
+        statusDialog?.show()
     }
 
     private fun extractUrl(text: String?): String? {
@@ -78,31 +78,35 @@ class MainActivity : AppCompatActivity() {
         val platform = detectPlatform(url)
 
         if (platform == "TikTok" || platform == "Instagram" || platform == "Snapchat") {
+            showStatus("جاري التحميل التلقائي من $platform بدون علامة مائية...")
             startDownload(url, platform, "best")
             return
         }
 
-        showLoading("🔍 جاري فحص الدقات المتاحة من $platform...")
+        showStatus("جاري فحص الدقات المتاحة من $platform...")
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val info = YoutubeDL.getInstance().getInfo(url)
-                val formats = info.formats
-                    ?.filter { it.ext == "mp4" && it.height != null && it.height > 0 }
-                    ?.distinctBy { it.height }
-                    ?.sortedByDescending { it.height }
+                val heights = info.formats
+                    ?.filter { it.ext == "mp4" }
+                    ?.mapNotNull { it.height }
+                    ?.filter { it > 0 }
+                    ?.distinct()
+                    ?.sortedDescending()
 
                 withContext(Dispatchers.Main) {
-                    progressDialog?.dismiss()
-                    if (formats == null || formats.size <= 1) {
+                    statusDialog?.dismiss()
+                    if (heights == null || heights.size <= 1) {
+                        showStatus("جاري التحميل التلقائي...")
                         startDownload(url, platform, "best")
                     } else {
-                        showResolutionPicker(url, platform, formats.map { it.height })
+                        showResolutionPicker(url, platform, heights)
                     }
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    progressDialog?.dismiss()
+                    showStatus("جاري التحميل بأعلى دقة متاحة...")
                     startDownload(url, platform, "best")
                 }
             }
@@ -118,11 +122,12 @@ class MainActivity : AppCompatActivity() {
         AlertDialog.Builder(this)
             .setTitle("Najm Vid - اختر الدقة ($platform)")
             .setAdapter(adapter) { _, which ->
+                showStatus("جاري تحميل الفيديو وحفظه في NV_$platform...")
                 if (which == options.lastIndex) {
                     startDownload(url, platform, "audio")
                 } else {
                     val selectedHeight = heights[which]
-                    startDownload(url, platform, "bestvideo[height<=$selectedHeight][ext=mp4]+bestaudio[ext=m4a]/best[height<=$selectedHeight]/best")
+                    startDownload(url, platform, "bestvideo[height<=$selectedHeight][ext=mp4]+bestaudio[ext=m4a]/best[height<=$selectedHeight]")
                 }
             }
             .setOnCancelListener { finish() }
@@ -130,50 +135,48 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startDownload(url: String, platform: String, formatRule: String) {
-        showLoading("⏳ جاري تحميل الفيديو من $platform...\nسيتم الحفظ في مجلد NV_$platform")
-
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                // تحديث محرك التحميل تلقائياً لضمان عمل كافة المنصات
-                try { YoutubeDL.getInstance().updateYoutubeDL(applicationContext) } catch (_: Exception) {}
-
                 val folderName = "NV_$platform"
-                val baseDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-                val targetDir = File(baseDir, folderName)
+                val moviesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES)
+                val targetDir = File(moviesDir, folderName)
                 if (!targetDir.exists()) targetDir.mkdirs()
 
                 val request = YoutubeDLRequest(url)
                 if (formatRule == "audio") {
                     request.addOption("-x")
                     request.addOption("--audio-format", "mp3")
-                    request.addOption("-o", "${targetDir.absolutePath}/NV_%(id)s.%(ext)s")
+                    request.addOption("-o", "${targetDir.absolutePath}/NV_%(title).40s_%(id)s.%(ext)s")
                 } else {
                     request.addOption("-f", formatRule)
                     request.addOption("--merge-output-format", "mp4")
-                    request.addOption("-o", "${targetDir.absolutePath}/NV_%(id)s.%(ext)s")
+                    request.addOption("-o", "${targetDir.absolutePath}/NV_%(title).40s_%(id)s.%(ext)s")
                 }
 
-                YoutubeDL.getInstance().execute(request) { _, _, _ -> }
+                YoutubeDL.getInstance().execute(request)
 
-                // فحص الملفات الجديدة لإظهارها فوراً في الاستوديو
-                val files = targetDir.listFiles()?.map { it.absolutePath }?.toTypedArray() ?: arrayOf(targetDir.absolutePath)
-                MediaScannerConnection.scanFile(applicationContext, files, null, null)
+                MediaScannerConnection.scanFile(
+                    applicationContext,
+                    arrayOf(targetDir.absolutePath),
+                    null,
+                    null
+                )
 
                 withContext(Dispatchers.Main) {
-                    progressDialog?.dismiss()
+                    statusDialog?.dismiss()
                     Toast.makeText(
                         applicationContext,
-                        "✅ تم الحفظ بنجاح في: Downloads/$folderName",
+                        "✅ تم الحفظ في فولدر: $folderName",
                         Toast.LENGTH_LONG
                     ).show()
                     finish()
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    progressDialog?.dismiss()
+                    statusDialog?.dismiss()
                     Toast.makeText(
                         applicationContext,
-                        "❌ تعذر التحميل: ${e.localizedMessage ?: "تأكد من الرابط"}",
+                        "❌ فشل التحميل: تأكد من أن الحساب أو الفيديو عام",
                         Toast.LENGTH_LONG
                     ).show()
                     finish()
@@ -192,7 +195,7 @@ class MainActivity : AppCompatActivity() {
                 "2. اضغط (مشاركة / Share) واختر Najm Vid.\n" +
                 "3. لتثبيته كأول اقتراح دائماً: اضغط مطولاً على أيقونة Najm Vid في قائمة المشاركة واختر (تثبيت / Pin).\n\n" +
                 "📁 مسار الحفظ التلقائي:\n" +
-                "Downloads / NV_[اسم المنصة]"
+                "Movies / NV_[اسم المنصة]"
             )
             .setPositiveButton("تم") { _, _ -> finish() }
             .setOnCancelListener { finish() }

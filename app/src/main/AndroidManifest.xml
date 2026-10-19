@@ -10,7 +10,7 @@
         android:supportsRtl="true"
         android:requestLegacyExternalStorage="true"
         android:extractNativeLibs="true"
-        android:theme="@style/Theme.Material3.DayNight.Dialog">
+        android:theme="@style/Theme.AppCompat.DayNight.Dialog.Alert">
 
         <activity
             android:name=".MainActivity"
