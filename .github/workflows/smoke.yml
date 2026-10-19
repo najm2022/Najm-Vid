@@ -26,10 +26,6 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.7'
-      - name: Create tiny offline video fixture
-        run: |
-          mkdir -p app/src/androidTest/assets
-          ffmpeg -hide_banner -loglevel error -f lavfi -i color=c=black:s=160x90:r=15 -f lavfi -i anullsrc=r=44100:cl=stereo -t 1 -c:v mpeg4 -c:a aac -y app/src/androidTest/assets/najm_smoke.mp4
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
