@@ -11,6 +11,10 @@ permissions:
 
 jobs:
   emulator:
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [29, 34]
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
@@ -34,7 +38,7 @@ jobs:
       - name: Test share, native engine, foreground service, gallery and MP3
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 34
+          api-level: ${{ matrix.api }}
           arch: x86_64
           target: google_apis
           disable-animations: true
@@ -50,7 +54,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Android-runtime-test-results
+          name: Android-runtime-test-results-${{ matrix.api }}
           path: |
             app/build/reports/androidTests/connected/debug/
             ui-screenshots/

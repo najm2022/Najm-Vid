@@ -30,7 +30,7 @@ class DashboardTest {
             capture(context,"01-home.png")
             scenario.onActivity { it.window.decorView.findViewWithTag<EditText>("url_input").setText("https://example.com/video") }
             onView(withTagValue(equalTo("nav_downloads"))).perform(click())
-            onView(withText("مكتبتك")).check(matches(isDisplayed()))
+            onView(withText("مكتبتك، بترتيبك.")).check(matches(isDisplayed()))
             capture(context,"02-library.png")
             onView(withTagValue(equalTo("nav_settings"))).perform(click())
             onView(withText("على طريقتك")).check(matches(isDisplayed()))
@@ -50,6 +50,45 @@ class DashboardTest {
             }
         }
         AppPreferences.setQuality(context,"ask")
+    }
+
+    @Test fun glassRendersAndLibrarySearchAndMediaFiltersWork(){
+        val context=InstrumentationRegistry.getInstrumentation().targetContext
+        DownloadStore.init(context);DownloadStore.clearFinished()
+        val video=DownloadItem(url="https://example.com/desert",title="رحلة إلى العلا",status="completed",height=1080,bytes=4_194_304)
+        val audio=DownloadItem(url="https://example.com/audio",title="صوت البحر",status="completed",audio=true,bytes=1_048_576)
+        DownloadStore.add(audio);DownloadStore.add(video)
+        try{
+            ActivityScenario.launch<MainActivity>(Intent(context,MainActivity::class.java)).use{scenario->
+                capture(context,"04-glass-home.png")
+                scenario.onActivity{activity->
+                    val scene=activity.window.decorView.findViewWithTag<android.view.View>("app_root")
+                    assertTrue(scene.background is SceneDrawable)
+                    val button=activity.window.decorView.findViewWithTag<android.view.View>("inspect_button")
+                    assertTrue(button.background is GlassDrawable)
+                    if(android.os.Build.VERSION.SDK_INT>=33)assertTrue("The GPU glass shader must compile",(button.background as GlassDrawable).usesGpuLens)
+                }
+                onView(withTagValue(equalTo("nav_downloads"))).perform(click())
+                onView(withText("رحلة إلى العلا")).check(matches(isDisplayed()))
+                onView(withText("صوت")).perform(click())
+                onView(withText("صوت البحر")).check(matches(isDisplayed()))
+                onView(withText("رحلة إلى العلا")).check(androidx.test.espresso.assertion.ViewAssertions.doesNotExist())
+                onView(withText("الكل")).perform(click())
+                scenario.onActivity{it.window.decorView.findViewWithTag<EditText>("library_search").setText("العلا")}
+                onView(withText("رحلة إلى العلا")).check(matches(isDisplayed()))
+                onView(withText("صوت البحر")).check(androidx.test.espresso.assertion.ViewAssertions.doesNotExist())
+                capture(context,"05-glass-library.png")
+                onView(withTagValue(equalTo("nav_home"))).perform(click())
+                scenario.onActivity{activity->
+                    val info=com.yausername.youtubedl_android.mapper.VideoInfo().apply{title="رحلة إلى العلا"}
+                    activity.flow.preview("https://example.com/desert",info,listOf(1080,720))
+                }
+                onView(withText("اختر الجودة")).check(matches(isDisplayed()))
+                onView(withText("720p")).perform(click())
+                onView(withText("720p")).check(matches(isChecked()))
+                capture(context,"06-glass-quality.png")
+            }
+        }finally{DownloadStore.remove(video.id);DownloadStore.remove(audio.id)}
     }
 
     private fun capture(context: Context,name: String) {

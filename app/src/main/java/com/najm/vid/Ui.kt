@@ -15,14 +15,17 @@ import java.net.URL
 import java.util.Locale
 
 object Ui {
-    val bg = Color.rgb(10,17,18)
-    val card = Color.rgb(20,30,31)
-    val raised = Color.rgb(27,40,40)
-    val line = Color.rgb(41,57,55)
-    val mint = Color.rgb(178,244,205)
-    val white = Color.rgb(241,246,242)
-    val muted = Color.rgb(143,162,155)
-    val danger = Color.rgb(255,172,159)
+    val bg = Color.rgb(247,242,235)
+    val card = Color.rgb(253,249,244)
+    val raised = Color.rgb(239,229,217)
+    val line = Color.rgb(215,198,180)
+    val mint = Color.rgb(184,78,13) // Text-safe orange; retained alias for existing callers.
+    val accent = Color.rgb(255,137,34)
+    val ink = Color.rgb(35,33,30)
+    val white = ink // Existing content uses this token for foreground text.
+    val muted = Color.rgb(105,95,85)
+    val danger = Color.rgb(158,48,29)
+    fun glass(c: Context, radius: Int=24, tone: GlassTone=GlassTone.CLEAR) = GlassDrawable(c,radius,tone)
     fun dp(c: Context, v: Int) = (v*c.resources.displayMetrics.density).toInt()
     fun shape(c: Context, color: Int = card, radius: Int = 24, border: Boolean = false) = GradientDrawable().apply {
         setColor(color);cornerRadius=dp(c,radius).toFloat();if(border)setStroke(dp(c,1),line)
@@ -35,27 +38,37 @@ object Ui {
     fun column(c: Context, padding: Int=0) = LinearLayout(c).apply { orientation=LinearLayout.VERTICAL;layoutDirection=View.LAYOUT_DIRECTION_RTL;setPadding(dp(c,padding),dp(c,padding),dp(c,padding),dp(c,padding)) }
     fun row(c: Context) = LinearLayout(c).apply { orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;layoutDirection=View.LAYOUT_DIRECTION_RTL }
     fun space(c: Context, height: Int) = View(c).apply { layoutParams=LinearLayout.LayoutParams(1,dp(c,height)) }
-    fun button(c: Context, label: String, primary: Boolean=true, action: () -> Unit): TextView = text(c,label,14f,if(primary)bg else mint,true).apply {
-        gravity=Gravity.CENTER;background=shape(c,if(primary)mint else raised,16)
-        setPadding(dp(c,14),0,dp(c,14),0);minHeight=dp(c,52);isClickable=true;isFocusable=true
+    fun button(c: Context, label: String, primary: Boolean=true, action: () -> Unit): TextView = text(c,label,14f,if(primary)Color.WHITE else ink,true).apply {
+        gravity=Gravity.CENTER;background=glass(c,26,if(primary)GlassTone.SMOKED else GlassTone.CLEAR)
+        setPadding(dp(c,16),dp(c,8),dp(c,16),dp(c,8));minHeight=dp(c,52);isClickable=true;isFocusable=true
         setOnClickListener { action() };contentDescription=label
     }
-    fun pill(c: Context, label: String, selected: Boolean=false, action: (() -> Unit)?=null) = text(c,label,11f,if(selected)mint else muted,selected).apply {
-        gravity=Gravity.CENTER;background=shape(c,if(selected)Color.rgb(35,63,48) else raised,12)
-        setPadding(dp(c,12),dp(c,9),dp(c,12),dp(c,9));if(action!=null){isClickable=true;isFocusable=true;setOnClickListener{action()}}
+    fun pill(c: Context, label: String, selected: Boolean=false, action: (() -> Unit)?=null) = text(c,label,12f,if(selected)Color.WHITE else muted,selected).apply {
+        gravity=Gravity.CENTER;background=glass(c,24,if(selected)GlassTone.SMOKED else GlassTone.FIELD)
+        minHeight=dp(c,48);setPadding(dp(c,12),dp(c,9),dp(c,12),dp(c,9));if(action!=null){isClickable=true;isFocusable=true;setOnClickListener{action()}}
     }
-    fun iconButton(c: Context, name: String, label: String, action: () -> Unit) = Glyph(c,name,muted).apply {
-        contentDescription=label;background=shape(c,raised,14);setPadding(dp(c,12),dp(c,12),dp(c,12),dp(c,12))
+    fun iconButton(c: Context, name: String, label: String, action: () -> Unit) = Glyph(c,name,ink).apply {
+        contentDescription=label;background=glass(c,24);setPadding(dp(c,13),dp(c,13),dp(c,13),dp(c,13))
         layoutParams=LinearLayout.LayoutParams(dp(c,48),dp(c,48));isClickable=true;isFocusable=true;setOnClickListener{action()}
+    }
+    fun action(c: Context,label: String,icon: String="arrow",tag: String?=null,callback: ()->Unit): LinearLayout {
+        val row=row(c)
+        row.addView(Glyph(c,icon,Color.WHITE).apply{
+            background=glass(c,28,GlassTone.SMOKED);contentDescription=label
+            setPadding(dp(c,15),dp(c,15),dp(c,15),dp(c,15));isClickable=true;isFocusable=true;setOnClickListener{callback()}
+        },LinearLayout.LayoutParams(dp(c,52),dp(c,52)).apply{marginEnd=dp(c,7)})
+        row.addView(button(c,label,action=callback).apply{this.tag=tag},LinearLayout.LayoutParams(0,-2,1f))
+        return row
     }
     fun sheet(a: AppCompatActivity): Pair<BottomSheetDialog,LinearLayout> {
         val dialog=BottomSheetDialog(a,R.style.Theme_NajmVid_Sheet)
-        val content=column(a,22)
+        val content=column(a,22).apply{background=glass(a,28)}
         val handle=View(a).apply { background=shape(a,line,4) }
         content.addView(handle,LinearLayout.LayoutParams(dp(a,38),dp(a,4)).apply{gravity=Gravity.CENTER_HORIZONTAL;bottomMargin=dp(a,22)})
         val scroll=ScrollView(a).apply { isFillViewport=true;addView(content);isVerticalScrollBarEnabled=false }
         dialog.setContentView(scroll)
-        dialog.setOnShowListener { dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)?.background=shape(a,card,28) }
+        dialog.setOnShowListener { dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)?.background=SceneDrawable()
+            dialog.window?.let{androidx.core.view.WindowCompat.getInsetsController(it,it.decorView).isAppearanceLightNavigationBars=true} }
         return dialog to content
     }
     fun toast(c: Context, message: String) = Toast.makeText(c,message,Toast.LENGTH_SHORT).show()
@@ -91,14 +104,11 @@ class Glyph(c: Context, private val symbol: String, var tint: Int = Ui.muted) : 
 
 class OrbitView(c: Context) : View(c) {
     override fun onDraw(canvas: Canvas) {
-        val p=Paint(Paint.ANTI_ALIAS_FLAG);val x=width*.48f;val y=height*.50f;val size=minOf(width,height)*.47f
-        p.style=Paint.Style.STROKE;p.strokeWidth=Ui.dp(context,1).toFloat();p.color=Color.rgb(43,77,63)
-        for(i in 1..3)canvas.drawCircle(x,y,size*i/3,p)
-        canvas.save();canvas.rotate(-18f,x,y);p.style=Paint.Style.FILL
-        p.shader=LinearGradient(x-size,y-size,x+size,y+size,Ui.mint,Color.rgb(79,155,119),Shader.TileMode.CLAMP)
-        canvas.drawRoundRect(x-size*.5f,y-size*.61f,x+size*.5f,y+size*.61f,size*.22f,size*.22f,p);p.shader=null
-        p.color=Ui.bg;val path=Path();path.moveTo(x-size*.12f,y-size*.21f);path.lineTo(x+size*.22f,y);path.lineTo(x-size*.12f,y+size*.21f);path.close();canvas.drawPath(path,p);canvas.restore()
-        p.color=Ui.mint;canvas.drawCircle(x+size*.82f,y-size*.48f,Ui.dp(context,4).toFloat(),p)
+        val p=Paint(Paint.ANTI_ALIAS_FLAG);val x=width*.5f;val y=height*.5f;val r=minOf(width,height)*.37f
+        p.shader=RadialGradient(x-r*.4f,y-r*.45f,r*1.5f,intArrayOf(0xFFFFDCAC.toInt(),0xFFFFAC55.toInt(),0xFFF98023.toInt()),null,Shader.TileMode.CLAMP)
+        canvas.drawCircle(x,y,r,p);p.shader=null
+        p.color=0xAFFFFFFF.toInt();p.style=Paint.Style.STROKE;p.strokeWidth=Ui.dp(context,1).toFloat();canvas.drawCircle(x,y,r,p)
+        p.style=Paint.Style.FILL;p.color=0xEDFFFFFF.toInt();val path=Path().apply{moveTo(x-r*.16f,y-r*.30f);lineTo(x+r*.34f,y);lineTo(x-r*.16f,y+r*.30f);close()};canvas.drawPath(path,p)
     }
 }
 

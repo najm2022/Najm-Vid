@@ -1,19 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.NajmVid" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-        <item name="android:windowBackground">#0A1112</item>
-        <item name="android:colorBackground">#0A1112</item>
-        <item name="android:statusBarColor">#0A1112</item>
-        <item name="android:navigationBarColor">#0A1112</item>
-        <item name="android:windowLightStatusBar">false</item>
-        <item name="android:windowLightNavigationBar">false</item>
-        <item name="colorPrimary">#B2F4CD</item>
-        <item name="colorPrimaryVariant">#007764</item>
-        <item name="colorSecondary">#B2F4CD</item>
-        <item name="colorSurface">#141E1F</item>
-        <item name="colorOnSurface">#F1F6F2</item>
-        <item name="android:textColorPrimary">#F1F6F2</item>
-        <item name="android:textColorSecondary">#8FA29B</item>
+    <style name="Theme.NajmVid" parent="Theme.MaterialComponents.Light.NoActionBar">
+        <item name="android:windowBackground">#F7F2EB</item>
+        <item name="android:colorBackground">#F7F2EB</item>
+        <item name="android:statusBarColor">#F7F2EB</item>
+        <item name="android:navigationBarColor">#F7F2EB</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="colorPrimary">#B84E0D</item>
+        <item name="colorPrimaryVariant">#B84E0D</item>
+        <item name="colorSecondary">#B84E0D</item>
+        <item name="colorSurface">#FDF9F4</item>
+        <item name="colorOnSurface">#23211E</item>
+        <item name="android:textColorPrimary">#23211E</item>
+        <item name="android:textColorSecondary">#695F55</item>
         <item name="android:fontFamily">sans-serif</item>
         <item name="android:windowActionModeOverlay">true</item>
     </style>
@@ -23,13 +23,13 @@
         <item name="android:windowDisablePreview">true</item>
         <item name="android:backgroundDimEnabled">false</item>
     </style>
-    <style name="Theme.NajmVid.Sheet" parent="Theme.MaterialComponents.DayNight.BottomSheetDialog">
-        <item name="colorPrimary">#B2F4CD</item>
-        <item name="colorSecondary">#B2F4CD</item>
-        <item name="colorSurface">#141E1F</item>
-        <item name="colorOnSurface">#F1F6F2</item>
-        <item name="android:textColorPrimary">#F1F6F2</item>
-        <item name="android:windowLightNavigationBar">false</item>
-        <item name="android:navigationBarColor">#141E1F</item>
+    <style name="Theme.NajmVid.Sheet" parent="Theme.MaterialComponents.Light.BottomSheetDialog">
+        <item name="colorPrimary">#B84E0D</item>
+        <item name="colorSecondary">#B84E0D</item>
+        <item name="colorSurface">#FDF9F4</item>
+        <item name="colorOnSurface">#23211E</item>
+        <item name="android:textColorPrimary">#23211E</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:navigationBarColor">#FDF9F4</item>
     </style>
 </resources>
