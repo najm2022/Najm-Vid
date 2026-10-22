@@ -9,6 +9,7 @@ import android.view.animation.OvershootInterpolator
 import android.widget.*
 import androidx.appcompat.widget.AppCompatEditText
 import androidx.appcompat.widget.AppCompatTextView
+import androidx.appcompat.widget.AppCompatRadioButton
 import kotlin.math.*
 
 /** An in-process paint pass of this app's own content, never a screen capture. */
@@ -76,6 +77,7 @@ class GlassHost(c: Context) : FrameLayout(c) {
 
 internal object GlassTouch {
     fun dispatch(view: View,event: MotionEvent){
+        if(!view.isClickable && view !is LiquidEditText && view !is LiquidRadioButton)return
         var owner: View?=view
         while(owner!=null && owner.background !is GlassDrawable)owner=owner.parent as? View
         val target=owner?:return
@@ -102,7 +104,7 @@ class LiquidEditText(c: Context) : AppCompatEditText(c){
     override fun onTouchEvent(event: MotionEvent): Boolean {GlassTouch.dispatch(this,event);return super.onTouchEvent(event)}
     override fun performClick()=super.performClick()
 }
-class LiquidRadioButton(c: Context) : RadioButton(c){
+class LiquidRadioButton(c: Context) : AppCompatRadioButton(c){
     override fun draw(canvas: Canvas){if(!GlassPass.skip(this))super.draw(canvas)}
     override fun onTouchEvent(event: MotionEvent): Boolean {GlassTouch.dispatch(this,event);return super.onTouchEvent(event)}
     override fun performClick()=super.performClick()
