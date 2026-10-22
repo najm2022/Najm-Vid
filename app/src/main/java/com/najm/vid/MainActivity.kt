@@ -59,6 +59,8 @@ class MainActivity : AppCompatActivity() {
     override fun onSaveInstanceState(outState: Bundle){outState.putString("page",page);outState.putString("filter",filter);outState.putString("draft",urlInput?.text?.toString()?:draft);super.onSaveInstanceState(outState)}
 
     private fun selectPage(next: String){
+        (getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).hideSoftInputFromWindow(root.windowToken,0)
+        root.isFocusableInTouchMode=true;root.requestFocus()
         urlInput?.let{draft=it.text.toString()}
         page=next;list=null;savedCount=null;activeCount=null;qualityLabel=null;urlInput=null;body.removeAllViews();renderNav()
         val scroll=ScrollView(this).apply{isVerticalScrollBarEnabled=false;isFillViewport=true;clipToPadding=false}

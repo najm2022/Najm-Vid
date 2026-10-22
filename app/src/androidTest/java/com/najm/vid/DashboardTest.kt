@@ -83,10 +83,10 @@ class DashboardTest {
                     val info=com.yausername.youtubedl_android.mapper.VideoInfo()
                     activity.flow.preview("https://example.com/desert",info,listOf(1080,720))
                 }
-                onView(withText("اختر الجودة")).check(matches(isDisplayed()))
-                onView(withText("720p")).perform(click())
-                onView(withText("720p")).check(matches(isChecked()))
                 capture(context,"06-glass-quality.png")
+                onView(withText("اختر الجودة")).inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog()).check(matches(isDisplayed()))
+                onView(withText("720p")).inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog()).perform(androidx.test.espresso.action.ViewActions.scrollTo(),click())
+                onView(withText("720p")).inRoot(androidx.test.espresso.matcher.RootMatchers.isDialog()).check(matches(isChecked()))
             }
         }finally{DownloadStore.remove(video.id);DownloadStore.remove(audio.id)}
     }

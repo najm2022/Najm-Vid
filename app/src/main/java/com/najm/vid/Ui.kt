@@ -61,13 +61,17 @@ object Ui {
         return row
     }
     fun sheet(a: AppCompatActivity): Pair<BottomSheetDialog,LinearLayout> {
+        (a.getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).hideSoftInputFromWindow(a.currentFocus?.windowToken,0)
         val dialog=BottomSheetDialog(a,R.style.Theme_NajmVid_Sheet)
         val content=column(a,22).apply{background=glass(a,28)}
         val handle=View(a).apply { background=shape(a,line,4) }
         content.addView(handle,LinearLayout.LayoutParams(dp(a,38),dp(a,4)).apply{gravity=Gravity.CENTER_HORIZONTAL;bottomMargin=dp(a,22)})
         val scroll=ScrollView(a).apply { isFillViewport=true;addView(content);isVerticalScrollBarEnabled=false }
         dialog.setContentView(scroll)
-        dialog.setOnShowListener { dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)?.background=SceneDrawable()
+        dialog.setOnShowListener { dialog.findViewById<android.widget.FrameLayout>(com.google.android.material.R.id.design_bottom_sheet)?.let{sheet->
+                sheet.background=SceneDrawable()
+                com.google.android.material.bottomsheet.BottomSheetBehavior.from(sheet).apply{skipCollapsed=true;state=com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED}
+            }
             dialog.window?.let{androidx.core.view.WindowCompat.getInsetsController(it,it.decorView).isAppearanceLightNavigationBars=true} }
         return dialog to content
     }
