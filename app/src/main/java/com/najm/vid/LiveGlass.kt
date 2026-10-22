@@ -18,12 +18,14 @@ internal object GlassPass {
     fun skip(view: View)=active && view.background is GlassDrawable
 }
 
-internal data class GlassFrame(val bitmap: Bitmap,val width: Int,val height: Int,val serial: Long)
+internal data class GlassFrame(val bitmap: Bitmap,val softBitmap: Bitmap,val width: Int,val height: Int,val serial: Long)
 
 /** Captures the content plane once when it changes, excluding all glass controls. */
 class GlassHost(c: Context) : FrameLayout(c) {
     private var dirty=true
     private var buffers=arrayOfNulls<Bitmap>(2)
+    private var softBuffers=arrayOfNulls<Bitmap>(2)
+    private val filter=Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
     private var bufferIndex=0
     private var capturing=false
     internal var frame: GlassFrame?=null
@@ -63,7 +65,12 @@ class GlassHost(c: Context) : FrameLayout(c) {
         target.scale(w.toFloat()/width,h.toFloat()/height)
         capturing=true;GlassPass.active=true
         try{background?.draw(target);super.dispatchDraw(target)}finally{GlassPass.active=false;capturing=false}
-        captureCount++;frame=GlassFrame(bitmap,width,height,captureCount);dirty=false
+        // Prefilter before optical sampling so high-frequency text cannot form duplicate images.
+        val sw=(w/6).coerceAtLeast(1);val sh=(h/6).coerceAtLeast(1)
+        var soft=softBuffers[bufferIndex]
+        if(soft==null || soft.width!=sw || soft.height!=sh){soft=Bitmap.createBitmap(sw,sh,Bitmap.Config.ARGB_8888);softBuffers[bufferIndex]=soft}
+        Canvas(soft).drawBitmap(bitmap,null,Rect(0,0,sw,sh),filter)
+        captureCount++;frame=GlassFrame(bitmap,soft,width,height,captureCount);dirty=false
         invalidateMaterials(this)
     }
     private fun invalidateMaterials(group: ViewGroup){
@@ -72,7 +79,7 @@ class GlassHost(c: Context) : FrameLayout(c) {
             else if(child is ViewGroup)invalidateMaterials(child)
         }
     }
-    override fun onDetachedFromWindow(){super.onDetachedFromWindow();frame=null;buffers=arrayOfNulls(2)}
+    override fun onDetachedFromWindow(){super.onDetachedFromWindow();frame=null;buffers=arrayOfNulls(2);softBuffers=arrayOfNulls(2)}
 }
 
 internal object GlassTouch {

@@ -7,7 +7,7 @@ import android.os.Build
 import android.view.View
 import androidx.annotation.RequiresApi
 
-/** The glass samples only our own decorative scene; text and media stay sharp. */
+/** Decorative scene, also used when a control has no live content host. */
 object GlassScene {
     private val cache=android.util.LruCache<String,Bitmap>(4)
     fun texture(w: Int, h: Int): Bitmap {
@@ -92,7 +92,7 @@ class GlassDrawable(private val c: Context,private val corner: Int=24,private va
         val w=(frame?.width?:root?.width?:c.resources.displayMetrics.widthPixels).coerceAtLeast(1)
         val h=(frame?.height?:root?.height?:c.resources.displayMetrics.heightPixels).coerceAtLeast(1)
         val radius=Ui.dp(c,corner).toFloat().coerceAtMost(rect.height()/2)
-        val texture=frame?.bitmap?:GlassScene.texture(w,h)
+        val texture=frame?.softBitmap?:GlassScene.texture(w,h)
         usesLiveSource=frame!=null
         v?.getLocationInWindow(location);host?.getLocationInWindow(hostLocation)
         val x=(location[0]-if(host!=null)hostLocation[0]else 0).toFloat()
@@ -150,7 +150,7 @@ private class AgslGlassLens : GlassLens {
             float edge=1.0-smoothstep(0.0,12.0*density,-d);
             float bend=edge*edge*(8.5+pressure*3.0)*density;
             float2 uv=(xy+offset-n*bend)*scale;
-            float2 blur=scale*density*(3.0+5.0*(1.0-edge));
+            float2 blur=float2(0.65+0.45*(1.0-edge));
             float2 horizontal=float2(blur.x,0.0);
             float2 vertical=float2(0.0,blur.y);
             half4 color=scene.eval(uv)*0.25;
