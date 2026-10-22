@@ -23,6 +23,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var body: FrameLayout
     private lateinit var nav: LinearLayout
     private lateinit var flow: DownloadFlow
+    private var draft=""
     private var page="home"
     private var filter="all"
     private var list: LinearLayout?=null
@@ -37,13 +38,15 @@ class MainActivity : AppCompatActivity() {
         WindowCompat.setDecorFitsSystemWindows(window,false)
         window.statusBarColor=Ui.bg;window.navigationBarColor=Ui.bg
         WindowCompat.getInsetsController(window,window.decorView).apply{isAppearanceLightStatusBars=false;isAppearanceLightNavigationBars=false}
-        flow=DownloadFlow(this,{selectPage("downloads");Ui.toast(this,"بدأ التحميل")},{})
+        flow=DownloadFlow(this,{draft="";urlInput?.setText("");selectPage("downloads");Ui.toast(this,"بدأ التحميل")},{})
         root=Ui.column(this).apply{setBackgroundColor(Ui.bg);tag="app_root"}
         body=FrameLayout(this);root.addView(body,LinearLayout.LayoutParams(-1,0,1f))
         nav=Ui.row(this).apply{background=Ui.shape(this@MainActivity,Ui.card,24,true);setPadding(Ui.dp(context,6),Ui.dp(context,6),Ui.dp(context,6),Ui.dp(context,6))}
         root.addView(nav,LinearLayout.LayoutParams(-1,Ui.dp(this,68)).apply{setMargins(Ui.dp(this@MainActivity,18),Ui.dp(this@MainActivity,8),Ui.dp(this@MainActivity,18),Ui.dp(this@MainActivity,10))})
         ViewCompat.setOnApplyWindowInsetsListener(root){v,insets->val bars=insets.getInsets(WindowInsetsCompat.Type.systemBars());v.setPadding(bars.left,bars.top,bars.right,maxOf(bars.bottom,insets.getInsets(WindowInsetsCompat.Type.ime()).bottom));insets}
         setContentView(root)
+        draft=savedInstanceState?.getString("draft").orEmpty()
+        onBackPressedDispatcher.addCallback(this,object: androidx.activity.OnBackPressedCallback(true){override fun handleOnBackPressed(){if(page!="home")selectPage("home")else finish()}})
         page=savedInstanceState?.getString("page")?:intent.getStringExtra("page")?:"home";filter=savedInstanceState?.getString("filter")?:"all";selectPage(page)
         savedInstanceState?.getString("draft")?.let{urlInput?.setText(it)}
         lifecycleScope.launch{repeatOnLifecycle(Lifecycle.State.STARTED){DownloadStore.items.collect{refreshRecords()}}}
@@ -51,9 +54,10 @@ class MainActivity : AppCompatActivity() {
     }
     override fun onNewIntent(intent: Intent){super.onNewIntent(intent);setIntent(intent);if(intent.action==Intent.ACTION_SEND)handleShare(intent) else intent.getStringExtra("page")?.let{selectPage(it)}}
     private fun handleShare(intent: Intent){flow.inspect(intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString().orEmpty())}
-    override fun onSaveInstanceState(outState: Bundle){outState.putString("page",page);outState.putString("filter",filter);outState.putString("draft",urlInput?.text?.toString());super.onSaveInstanceState(outState)}
+    override fun onSaveInstanceState(outState: Bundle){outState.putString("page",page);outState.putString("filter",filter);outState.putString("draft",urlInput?.text?.toString()?:draft);super.onSaveInstanceState(outState)}
 
     private fun selectPage(next: String){
+        urlInput?.let{draft=it.text.toString()}
         page=next;list=null;savedCount=null;activeCount=null;qualityLabel=null;urlInput=null;body.removeAllViews();renderNav()
         val scroll=ScrollView(this).apply{isVerticalScrollBarEnabled=false;isFillViewport=true;clipToPadding=false}
         val content=Ui.column(this,22);scroll.addView(content);body.addView(scroll)
@@ -65,7 +69,7 @@ class MainActivity : AppCompatActivity() {
         listOf(Triple("home","home","الرئيسية"),Triple("downloads","download","التحميلات"),Triple("settings","settings","الإعدادات")).forEach{(id,icon,label)->
             val selected=page==id;val item=Ui.column(this).apply{gravity=Gravity.CENTER;background=Ui.shape(this@MainActivity,if(selected)Color.rgb(34,53,45) else Ui.card,18);tag="nav_$id";contentDescription=label;isClickable=true;isFocusable=true;setOnClickListener{selectPage(id)}}
             item.addView(Glyph(this,icon,if(selected)Ui.mint else Ui.muted),LinearLayout.LayoutParams(Ui.dp(this,21),Ui.dp(this,21)))
-            item.addView(Ui.space(this,5));item.addView(Ui.text(this,label,10f,if(selected)Ui.mint else Ui.muted,selected).apply{gravity=Gravity.CENTER})
+            item.addView(Ui.space(this,5));item.addView(Ui.text(this,label,11f,if(selected)Ui.mint else Ui.muted,selected).apply{gravity=Gravity.CENTER})
             nav.addView(item,LinearLayout.LayoutParams(0,-1,1f).apply{setMargins(Ui.dp(this@MainActivity,3),0,Ui.dp(this@MainActivity,3),0)})
         }
     }
@@ -98,7 +102,7 @@ class MainActivity : AppCompatActivity() {
             inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_URI
             maxLines=2;minHeight=Ui.dp(context,54);imeOptions=EditorInfo.IME_ACTION_GO;textDirection=View.TEXT_DIRECTION_LTR
             setOnEditorActionListener{_,action,_->if(action==EditorInfo.IME_ACTION_GO){inspectInput();true}else false}
-        };urlInput=input;inputRow.addView(input,LinearLayout.LayoutParams(0,-2,1f));entry.addView(inputRow);entry.addView(Ui.space(this,13))
+        };input.setText(draft);urlInput=input;inputRow.addView(input,LinearLayout.LayoutParams(0,-2,1f));entry.addView(inputRow);entry.addView(Ui.space(this,13))
         entry.addView(Ui.button(this,"فحص الرابط"){inspectInput()}.apply{tag="inspect_button"})
         entry.addView(Ui.space(this,12));qualityLabel=Ui.text(this,"",11f,Ui.muted).apply{gravity=Gravity.CENTER;minHeight=Ui.dp(context,32);isClickable=true;isFocusable=true;setOnClickListener{qualityPicker()}}
         entry.addView(qualityLabel);box.addView(entry)
@@ -145,11 +149,11 @@ class MainActivity : AppCompatActivity() {
         frame.addView(Glyph(this,if(item.audio)"audio" else "play",Ui.mint),FrameLayout.LayoutParams(Ui.dp(this,24),Ui.dp(this,24),Gravity.CENTER))
         val image=ImageView(this).apply{scaleType=ImageView.ScaleType.CENTER_CROP};frame.addView(image,FrameLayout.LayoutParams(-1,-1));if(!item.audio)Artwork.load(this,image,item)
         row.addView(frame,LinearLayout.LayoutParams(Ui.dp(this,65),Ui.dp(this,66)).apply{marginEnd=Ui.dp(this@MainActivity,12)})
-        val words=Ui.column(this);words.addView(Ui.text(this,item.title,13f,bold=true).apply{maxLines=2;ellipsize=android.text.TextUtils.TruncateAt.END});words.addView(Ui.space(this,7));words.addView(Ui.text(this,"${item.platform}  ·  ${item.quality}",10f,Ui.muted));row.addView(words,LinearLayout.LayoutParams(0,-2,1f))
+        val words=Ui.column(this);words.addView(Ui.text(this,item.title,13f,bold=true).apply{maxLines=2;ellipsize=android.text.TextUtils.TruncateAt.END});words.addView(Ui.space(this,7));words.addView(Ui.text(this,"${item.platform}  ·  ${item.quality}",11f,Ui.muted));row.addView(words,LinearLayout.LayoutParams(0,-2,1f))
         if(item.status=="completed")row.addView(Glyph(this,"check",Ui.mint),LinearLayout.LayoutParams(Ui.dp(this,18),Ui.dp(this,18)))
         card.addView(row);card.addView(Ui.space(this,13))
         val status=when(item.status){"queued"->"في قائمة الانتظار";"loading"->"جارٍ التحميل  ${item.progress}%";"saving"->"جارٍ الحفظ في مكتبتك";"completed"->"تم الحفظ"+(if(item.bytes>0)"  ·  ${Ui.bytes(item.bytes)}" else  "");"cancelled"->"تم الإلغاء";"interrupted"->"توقف التحميل  ·  اضغط لإعادته";else->"لم يكتمل التحميل  ·  اضغط للمحاولة"}
-        card.addView(Ui.text(this,status,10f,if(item.status in setOf("failed","interrupted"))Ui.danger else if(item.status=="completed")Ui.mint else Ui.muted))
+        card.addView(Ui.text(this,status,11f,if(item.status in setOf("failed","interrupted"))Ui.danger else if(item.status=="completed")Ui.mint else Ui.muted))
         if(item.active){card.addView(Ui.space(this,9));card.addView(ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal).apply{max=100;progress=item.progress;isIndeterminate=item.status!="loading";progressTintList=android.content.res.ColorStateList.valueOf(Ui.mint);indeterminateTintList=android.content.res.ColorStateList.valueOf(Ui.mint)},LinearLayout.LayoutParams(-1,Ui.dp(this,4)))}
         return card
     }

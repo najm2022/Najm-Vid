@@ -46,7 +46,7 @@ object Ui {
     }
     fun iconButton(c: Context, name: String, label: String, action: () -> Unit) = Glyph(c,name,muted).apply {
         contentDescription=label;background=shape(c,raised,14);setPadding(dp(c,12),dp(c,12),dp(c,12),dp(c,12))
-        layoutParams=LinearLayout.LayoutParams(dp(c,44),dp(c,44));isClickable=true;isFocusable=true;setOnClickListener{action()}
+        layoutParams=LinearLayout.LayoutParams(dp(c,48),dp(c,48));isClickable=true;isFocusable=true;setOnClickListener{action()}
     }
     fun sheet(a: AppCompatActivity): Pair<BottomSheetDialog,LinearLayout> {
         val dialog=BottomSheetDialog(a,R.style.Theme_NajmVid_Sheet)
