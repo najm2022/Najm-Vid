@@ -26,8 +26,8 @@ class DashboardTest {
         DownloadStore.init(context);DownloadStore.clearFinished();AppPreferences.setQuality(context,"ask")
         ActivityScenario.launch<MainActivity>(Intent(context,MainActivity::class.java)).use { scenario ->
             onView(withTagValue(equalTo("app_root"))).check(matches(isDisplayed()))
-            onView(withTagValue(equalTo("inspect_button"))).check(matches(isDisplayed()))
             capture(context,"01-home.png")
+            onView(withTagValue(equalTo("inspect_button"))).perform(androidx.test.espresso.action.ViewActions.scrollTo()).check(matches(isDisplayed()))
             scenario.onActivity { it.window.decorView.findViewWithTag<EditText>("url_input").setText("https://example.com/video") }
             onView(withTagValue(equalTo("nav_downloads"))).perform(click())
             onView(withText("مكتبتك، بترتيبك.")).check(matches(isDisplayed()))
