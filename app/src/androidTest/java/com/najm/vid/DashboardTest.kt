@@ -80,7 +80,7 @@ class DashboardTest {
                 capture(context,"05-glass-library.png")
                 onView(withTagValue(equalTo("nav_home"))).perform(click())
                 scenario.onActivity{activity->
-                    val info=com.yausername.youtubedl_android.mapper.VideoInfo().apply{title="رحلة إلى العلا"}
+                    val info=com.yausername.youtubedl_android.mapper.VideoInfo()
                     activity.flow.preview("https://example.com/desert",info,listOf(1080,720))
                 }
                 onView(withText("اختر الجودة")).check(matches(isDisplayed()))
