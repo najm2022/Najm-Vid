@@ -25,6 +25,7 @@ class GlassHost(c: Context) : FrameLayout(c) {
     private var dirty=true
     private var buffers=arrayOfNulls<Bitmap>(2)
     private var softBuffers=arrayOfNulls<Bitmap>(2)
+    private var filterBuffers=Array(2){arrayOfNulls<Bitmap>(2)}
     private val filter=Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
     private var bufferIndex=0
     private var capturing=false
@@ -66,10 +67,17 @@ class GlassHost(c: Context) : FrameLayout(c) {
         capturing=true;GlassPass.active=true
         try{background?.draw(target);super.dispatchDraw(target)}finally{GlassPass.active=false;capturing=false}
         // Prefilter before optical sampling so high-frequency text cannot form duplicate images.
-        val sw=(w/6).coerceAtLeast(1);val sh=(h/6).coerceAtLeast(1)
-        var soft=softBuffers[bufferIndex]
-        if(soft==null || soft.width!=sw || soft.height!=sh){soft=Bitmap.createBitmap(sw,sh,Bitmap.Config.ARGB_8888);softBuffers[bufferIndex]=soft}
-        Canvas(soft).drawBitmap(bitmap,null,Rect(0,0,sw,sh),filter)
+        var soft: Bitmap=bitmap
+        for(pass in 0..2){
+            val divisor=1 shl (pass+1)
+            val sw=(w/divisor).coerceAtLeast(1);val sh=(h/divisor).coerceAtLeast(1)
+            var output=if(pass==2)softBuffers[bufferIndex]else filterBuffers[bufferIndex][pass]
+            if(output==null || output.width!=sw || output.height!=sh){
+                output=Bitmap.createBitmap(sw,sh,Bitmap.Config.ARGB_8888)
+                if(pass==2)softBuffers[bufferIndex]=output else filterBuffers[bufferIndex][pass]=output
+            }
+            Canvas(output).drawBitmap(soft,null,Rect(0,0,sw,sh),filter);soft=output
+        }
         captureCount++;frame=GlassFrame(bitmap,soft,width,height,captureCount);dirty=false
         invalidateMaterials(this)
     }
@@ -79,7 +87,7 @@ class GlassHost(c: Context) : FrameLayout(c) {
             else if(child is ViewGroup)invalidateMaterials(child)
         }
     }
-    override fun onDetachedFromWindow(){super.onDetachedFromWindow();frame=null;buffers=arrayOfNulls(2);softBuffers=arrayOfNulls(2)}
+    override fun onDetachedFromWindow(){super.onDetachedFromWindow();frame=null;buffers=arrayOfNulls(2);softBuffers=arrayOfNulls(2);filterBuffers=Array(2){arrayOfNulls(2)}}
 }
 
 internal object GlassTouch {
