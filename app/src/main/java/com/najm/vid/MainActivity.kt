@@ -19,9 +19,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.collect
 
 class MainActivity : AppCompatActivity() {
-    private lateinit var root: LinearLayout
+    private lateinit var root: GlassHost
     private lateinit var body: FrameLayout
-    private lateinit var nav: LinearLayout
+    private lateinit var nav: LiquidNavigation
     internal lateinit var flow: DownloadFlow
         private set
     private var draft=""
@@ -41,10 +41,10 @@ class MainActivity : AppCompatActivity() {
         window.statusBarColor=Ui.bg;window.navigationBarColor=Ui.bg
         WindowCompat.getInsetsController(window,window.decorView).apply{isAppearanceLightStatusBars=true;isAppearanceLightNavigationBars=true}
         flow=DownloadFlow(this,{draft="";urlInput?.setText("");selectPage("downloads");Ui.toast(this,"بدأ التحميل")},{})
-        root=Ui.column(this).apply{background=SceneDrawable();tag="app_root"}
-        body=FrameLayout(this);root.addView(body,LinearLayout.LayoutParams(-1,0,1f))
-        nav=Ui.row(this).apply{background=Ui.glass(this@MainActivity,28);elevation=Ui.dp(context,3).toFloat();setPadding(Ui.dp(context,6),Ui.dp(context,6),Ui.dp(context,6),Ui.dp(context,6))}
-        root.addView(nav,LinearLayout.LayoutParams(-1,Ui.dp(this,72)).apply{setMargins(Ui.dp(this@MainActivity,18),Ui.dp(this@MainActivity,8),Ui.dp(this@MainActivity,18),Ui.dp(this@MainActivity,10))})
+        root=GlassHost(this).apply{background=SceneDrawable();tag="app_root"}
+        body=FrameLayout(this).apply{tag="page_body"};root.addView(body,FrameLayout.LayoutParams(-1,-1))
+        nav=LiquidNavigation(this){index->selectPage(listOf("home","downloads","settings")[index])}
+        root.addView(nav,FrameLayout.LayoutParams(-1,Ui.dp(this,74),Gravity.BOTTOM).apply{setMargins(Ui.dp(this@MainActivity,18),0,Ui.dp(this@MainActivity,18),Ui.dp(this@MainActivity,10))})
         ViewCompat.setOnApplyWindowInsetsListener(root){v,insets->val bars=insets.getInsets(WindowInsetsCompat.Type.systemBars());v.setPadding(bars.left,bars.top,bars.right,maxOf(bars.bottom,insets.getInsets(WindowInsetsCompat.Type.ime()).bottom));insets}
         setContentView(root)
         draft=savedInstanceState?.getString("draft").orEmpty()
@@ -63,24 +63,26 @@ class MainActivity : AppCompatActivity() {
         root.isFocusableInTouchMode=true;root.requestFocus()
         urlInput?.let{draft=it.text.toString()}
         page=next;list=null;savedCount=null;activeCount=null;qualityLabel=null;urlInput=null;body.removeAllViews();renderNav()
-        val scroll=ScrollView(this).apply{isVerticalScrollBarEnabled=false;isFillViewport=true;clipToPadding=false}
+        val scroll=ScrollView(this).apply{tag="page_scroll";isVerticalScrollBarEnabled=false;isFillViewport=true;clipToPadding=false;setPadding(0,0,0,Ui.dp(context,104))}
         val content=Ui.column(this,22);scroll.addView(content);body.addView(scroll)
-        scroll.setOnScrollChangeListener { _,_,_,_,_->invalidateGlass(scroll) }
+        scroll.setOnScrollChangeListener { _,_,_,_,_->root.refreshBackdrop() }
         when(page){"downloads"->downloads(content);"settings"->settings(content);else->home(content)}
         refreshRecords()
     }
-    private fun invalidateGlass(view: View){
-        if(view.background is GlassDrawable)view.invalidate()
-        if(view is ViewGroup)for(i in 0 until view.childCount)invalidateGlass(view.getChildAt(i))
-    }
     private fun renderNav(){
-        nav.removeAllViews()
-        listOf(Triple("home","home","الرئيسية"),Triple("downloads","download","التحميلات"),Triple("settings","settings","الإعدادات")).forEach{(id,icon,label)->
-            val selected=page==id;val item=Ui.column(this).apply{gravity=Gravity.CENTER;background=if(selected)Ui.glass(this@MainActivity,30,GlassTone.SELECTED) else null;tag="nav_$id";contentDescription=label;isClickable=true;isFocusable=true;setOnClickListener{selectPage(id)}}
-            item.addView(Glyph(this,icon,if(selected)Ui.ink else Ui.muted),LinearLayout.LayoutParams(Ui.dp(this,21),Ui.dp(this,21)))
-            item.addView(Ui.space(this,5));item.addView(Ui.text(this,label,11f,if(selected)Ui.ink else Ui.muted,selected).apply{gravity=Gravity.CENTER})
-            nav.addView(item,LinearLayout.LayoutParams(0,-1,1f).apply{setMargins(Ui.dp(this@MainActivity,3),0,Ui.dp(this@MainActivity,3),0)})
+        val entries=listOf(Triple("home","home","الرئيسية"),Triple("downloads","download","التحميلات"),Triple("settings","settings","الإعدادات"))
+        if(nav.cells.childCount==0)entries.forEach{(id,icon,label)->
+            val item=Ui.column(this).apply{gravity=Gravity.CENTER;tag="nav_$id";contentDescription=label;isClickable=true;isFocusable=true;setOnClickListener{selectPage(id)}}
+            item.addView(Glyph(this,icon,Ui.muted),LinearLayout.LayoutParams(Ui.dp(this,21),Ui.dp(this,21)))
+            item.addView(Ui.space(this,2));item.addView(Ui.text(this,label,10f,Ui.muted).apply{gravity=Gravity.CENTER})
+            nav.cells.addView(item,LinearLayout.LayoutParams(0,-1,1f))
         }
+        entries.forEachIndexed{index,(id,_,_)->
+            val selected=page==id;val cell=nav.cells.getChildAt(index) as LinearLayout
+            (cell.getChildAt(0) as Glyph).apply{tint=if(selected)Ui.ink else Ui.muted;invalidate()}
+            (cell.getChildAt(2) as TextView).apply{setTextColor(if(selected)Ui.ink else Ui.muted);typeface=Ui.font(context,selected)}
+        }
+        nav.select(entries.indexOfFirst{it.first==page}.coerceAtLeast(0))
     }
     private fun header(box: LinearLayout, title: String, subtitle: String){
         val row=Ui.row(this);val words=Ui.column(this)
@@ -93,18 +95,18 @@ class MainActivity : AppCompatActivity() {
         top.addView(Ui.text(this,"Najm Vid",21f,Ui.ink,true).apply{gravity=Gravity.LEFT;setPadding(Ui.dp(context,9),0,0,0);textDirection=View.TEXT_DIRECTION_LTR},LinearLayout.LayoutParams(0,-2,1f))
         top.addView(Ui.iconButton(this,"settings","الإعدادات"){selectPage("settings")});box.addView(top)
         box.addView(Ui.space(this,24))
-        box.addView(Ui.text(this,"احفظ ما يستحق\nالمشاهدة.",if(resources.configuration.screenWidthDp<=360)29f else 33f,Ui.ink,true).apply{setLineSpacing(Ui.dp(context,3).toFloat(),1.04f)})
+        box.addView(Ui.text(this,"احفظ ما يستحق\nالمشاهدة.",if(resources.configuration.screenWidthDp<=360)29f else 33f,Ui.ink,true).apply{setLineSpacing(0f,.82f)})
         box.addView(Ui.space(this,20))
-        val entry=Ui.column(this,18).apply{background=Ui.glass(this@MainActivity,28);elevation=Ui.dp(context,2).toFloat()}
+        val entry=Ui.column(this,18).apply{background=Ui.surface(this@MainActivity,28)}
         val title=Ui.row(this);title.addView(Ui.text(this,"رابط جديد",17f,bold=true),LinearLayout.LayoutParams(0,-2,1f));title.addView(Glyph(this,"download",Ui.mint),LinearLayout.LayoutParams(Ui.dp(this,21),Ui.dp(this,21)));entry.addView(title);entry.addView(Ui.space(this,15))
         val inputRow=Ui.row(this).apply{background=Ui.glass(this@MainActivity,28,GlassTone.FIELD);setPadding(Ui.dp(context,12),Ui.dp(context,4),Ui.dp(context,12),Ui.dp(context,4))}
-        val paste=Ui.text(this,"لصق",12f,Ui.ink,true).apply{gravity=Gravity.CENTER;background=Ui.glass(this@MainActivity,24);minHeight=Ui.dp(context,48);minWidth=Ui.dp(context,48);tag="paste_button";isClickable=true;isFocusable=true;setOnClickListener{
+        val paste=Ui.text(this,"لصق",12f,Ui.ink,true).apply{gravity=Gravity.CENTER;background=Ui.surface(this@MainActivity,24);minHeight=Ui.dp(context,48);minWidth=Ui.dp(context,48);tag="paste_button";isClickable=true;isFocusable=true;setOnClickListener{
             val clip=(getSystemService(CLIPBOARD_SERVICE) as ClipboardManager).primaryClip
             val text=if(clip!=null&&clip.itemCount>0)clip.getItemAt(0).coerceToText(this@MainActivity).toString() else ""
             if(text.isBlank())Ui.toast(this@MainActivity,"لا يوجد رابط في الحافظة")else urlInput?.setText(text)
         }}
         inputRow.addView(paste)
-        val input=EditText(this).apply{
+        val input=LiquidEditText(this).apply{
             tag="url_input";hint="ألصق رابط الفيديو هنا";textSize=12f;typeface=Ui.font(context);setTextColor(Ui.white);setHintTextColor(Ui.muted);background=null
             inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_URI
             maxLines=2;minHeight=Ui.dp(context,54);imeOptions=EditorInfo.IME_ACTION_GO;textDirection=View.TEXT_DIRECTION_FIRST_STRONG_RTL
@@ -131,7 +133,7 @@ class MainActivity : AppCompatActivity() {
     }
     private fun downloads(box: LinearLayout){
         header(box,"التحميلات","مكتبتك، بترتيبك.")
-        val searchInput=EditText(this).apply{
+        val searchInput=LiquidEditText(this).apply{
             tag="library_search";hint="البحث في التحميلات";textSize=13f;typeface=Ui.font(context);setTextColor(Ui.ink);setHintTextColor(Ui.muted)
             background=Ui.glass(this@MainActivity,28,GlassTone.FIELD);setPadding(Ui.dp(context,17),0,Ui.dp(context,17),0)
             isSingleLine=true;minHeight=Ui.dp(context,52);setText(search)
@@ -151,7 +153,7 @@ class MainActivity : AppCompatActivity() {
         val target=list?:return;target.removeAllViews()
         val visible=if(page=="home")items.take(2)else items.filter{when(filter){"active"->it.active;"video"->!it.audio;"audio"->it.audio;else->true} && (search.isBlank()||it.title.contains(search,true)||it.platform.contains(search,true))}
         if(visible.isEmpty()){
-            val empty=Ui.column(this,20).apply{gravity=Gravity.CENTER;background=Ui.glass(this@MainActivity,24)}
+            val empty=Ui.column(this,20).apply{gravity=Gravity.CENTER;background=Ui.surface(this@MainActivity,24)}
             if(page=="downloads"){empty.addView(OrbitView(this),LinearLayout.LayoutParams(Ui.dp(this,120),Ui.dp(this,125)));empty.addView(Ui.space(this,12))}
             empty.addView(Ui.text(this,if(page=="downloads"&&search.isNotBlank())"لا توجد نتائج مطابقة" else if(filter=="active"&&page=="downloads")"لا توجد تحميلات جارية" else "مكتبتك تبدأ برابط",15f,bold=true).apply{gravity=Gravity.CENTER})
             empty.addView(Ui.space(this,9));empty.addView(Ui.text(this,"شارك مقطعًا إلى Najm Vid أو ألصق رابطه.",11f,Ui.muted).apply{gravity=Gravity.CENTER})
@@ -160,7 +162,7 @@ class MainActivity : AppCompatActivity() {
         visible.forEach{target.addView(recordCard(it));target.addView(Ui.space(this,12))}
     }
     private fun recordCard(item: DownloadItem): View {
-        val card=Ui.column(this,14).apply{background=Ui.glass(this@MainActivity,24);isClickable=true;isFocusable=true;setOnClickListener{recordActions(item)}}
+        val card=Ui.column(this,14).apply{background=Ui.surface(this@MainActivity,24);isClickable=true;isFocusable=true;setOnClickListener{recordActions(item)}}
         val row=Ui.row(this)
         val frame=FrameLayout(this).apply{background=Ui.shape(this@MainActivity,Ui.raised,14);clipToOutline=true}
         frame.addView(Glyph(this,if(item.audio)"audio" else "play",Ui.mint),FrameLayout.LayoutParams(Ui.dp(this,24),Ui.dp(this,24),Gravity.CENTER))
@@ -188,9 +190,9 @@ class MainActivity : AppCompatActivity() {
     }
     private fun settings(box: LinearLayout){
         header(box,"على طريقتك","خيارات قليلة. تجربة تناسبك.")
-        val quality=Ui.column(this,20).apply{background=Ui.glass(this@MainActivity,28);tag="quality_setting";isClickable=true;isFocusable=true;setOnClickListener{qualityPicker()}}
+        val quality=Ui.column(this,20).apply{background=Ui.surface(this@MainActivity,28);tag="quality_setting";isClickable=true;isFocusable=true;setOnClickListener{qualityPicker()}}
         quality.addView(Ui.text(this,"جودة المشاركة",16f,bold=true));quality.addView(Ui.space(this,9));quality.addView(Ui.text(this,AppPreferences.label(AppPreferences.quality(this)),14f,Ui.mint));quality.addView(Ui.space(this,11));quality.addView(Ui.text(this,"عند المشاركة من تطبيق آخر، نستخدم اختيارك تلقائيًا عندما يكون متاحًا.",12f,Ui.muted));box.addView(quality);box.addView(Ui.space(this,16))
-        fun setting(title: String, subtitle: String, callback:()->Unit){val card=Ui.column(this,20).apply{background=Ui.glass(this@MainActivity,24);isClickable=true;isFocusable=true;setOnClickListener{callback()}};card.addView(Ui.text(this,title,15f,bold=true));card.addView(Ui.space(this,8));card.addView(Ui.text(this,subtitle,12f,Ui.muted));box.addView(card);box.addView(Ui.space(this,14))}
+        fun setting(title: String, subtitle: String, callback:()->Unit){val card=Ui.column(this,20).apply{background=Ui.surface(this@MainActivity,24);isClickable=true;isFocusable=true;setOnClickListener{callback()}};card.addView(Ui.text(this,title,15f,bold=true));card.addView(Ui.space(this,8));card.addView(Ui.text(this,subtitle,12f,Ui.muted));box.addView(card);box.addView(Ui.space(this,14))}
         setting("الإشعارات","تابع تقدم التحميل واكتماله."){startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE,packageName))}
         setting("مكان الحفظ","الفيديو: \u2066Movies/NV_TikTok\u2069\nالصوت: \u2066Music/NV_TikTok\u2069"){Ui.toast(this,"يتغير اسم المجلد حسب المنصة، وتظهر المقاطع في معرض جهازك")}
         setting("مسح سجل التحميلات","تنظيف قائمة التحميلات المكتملة والمتوقفة."){AlertDialog.Builder(this).setTitle("مسح السجل؟").setMessage("ستُمسح العناصر المكتملة والمتوقفة من القائمة. تبقى الملفات المحفوظة على جهازك.").setPositiveButton("مسح السجل"){_,_->DownloadStore.clearFinished();Ui.toast(this,"تم مسح السجل")}.setNegativeButton("تراجع",null).show()}

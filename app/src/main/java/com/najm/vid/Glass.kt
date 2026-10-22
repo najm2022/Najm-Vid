@@ -49,71 +49,81 @@ class SceneDrawable : Drawable(){
 
 enum class GlassTone { CLEAR, FIELD, SMOKED, SELECTED }
 
-/** Cached scene plus a small GPU lens, no continuous animation or screen capture. */
+/** A live content lens with local touch lighting; glyphs are drawn separately. */
 class GlassDrawable(private val c: Context,private val corner: Int=24,private val tone: GlassTone=GlassTone.CLEAR) : Drawable(){
     private val p=Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
-    private val rect=RectF();private val clip=Path();private val location=IntArray(2)
+    private val rect=RectF();private val clip=Path();private val location=IntArray(2);private val hostLocation=IntArray(2)
     private var lens: GlassLens?=null
     private var attempted=false
+    private var animator: android.animation.ValueAnimator?=null
     internal val usesGpuLens get()=lens!=null
+    internal var usesLiveSource=false
+        private set
+    internal var pressure=0f
+        private set
+    private var touchX=-1f;private var touchY=-1f
     private var globalAlpha=255
     override fun onBoundsChange(bounds: Rect){
         rect.set(bounds.left+.8f,bounds.top+.8f,bounds.right-.8f,bounds.bottom-.8f)
         val radius=Ui.dp(c,corner).toFloat().coerceAtMost(rect.height()/2)
         clip.reset();clip.addRoundRect(rect,radius,radius,Path.Direction.CW)
     }
+    internal fun moveContact(x: Float,y: Float){touchX=x;touchY=y;invalidateSelf()}
+    internal fun contact(owner: View,x: Float,y: Float,pressed: Boolean,scaleView: Boolean=true){
+        touchX=x;touchY=y;animator?.cancel()
+        val to=if(pressed)1f else 0f
+        if(GlassTouch.motion(c)){
+            animator=android.animation.ValueAnimator.ofFloat(pressure,to).apply{
+                duration=if(pressed)110 else 300
+                interpolator=android.view.animation.DecelerateInterpolator()
+                addUpdateListener{pressure=it.animatedValue as Float;invalidateSelf()};start()
+            }
+            if(scaleView)owner.animate().scaleX(if(pressed)1.025f else 1f).scaleY(if(pressed)1.025f else 1f).setDuration(if(pressed)110 else 280).start()
+        }else{pressure=to;invalidateSelf()}
+    }
     override fun draw(canvas: Canvas){
-        if(rect.isEmpty)return
+        if(rect.isEmpty || GlassPass.active)return
         val v=callback as? View
+        var parent: View?=v
+        while(parent!=null && parent !is GlassHost)parent=parent.parent as? View
+        val host=parent as? GlassHost
+        val frame=host?.frame
         val root=v?.rootView
-        val w=(root?.width?:c.resources.displayMetrics.widthPixels).coerceAtLeast(1)
-        val h=(root?.height?:c.resources.displayMetrics.heightPixels).coerceAtLeast(1)
+        val w=(frame?.width?:root?.width?:c.resources.displayMetrics.widthPixels).coerceAtLeast(1)
+        val h=(frame?.height?:root?.height?:c.resources.displayMetrics.heightPixels).coerceAtLeast(1)
         val radius=Ui.dp(c,corner).toFloat().coerceAtMost(rect.height()/2)
-        val texture=GlassScene.texture(w,h)
-        v?.getLocationInWindow(location)
+        val texture=frame?.bitmap?:GlassScene.texture(w,h)
+        usesLiveSource=frame!=null
+        v?.getLocationInWindow(location);host?.getLocationInWindow(hostLocation)
+        val x=(location[0]-if(host!=null)hostLocation[0]else 0).toFloat()
+        val y=(location[1]-if(host!=null)hostLocation[1]else 0).toFloat()
         canvas.save();canvas.clipPath(clip)
         p.style=Paint.Style.FILL;p.alpha=globalAlpha
         if(!attempted){attempted=true;if(Build.VERSION.SDK_INT>=33)lens=runCatching{AgslGlassLens()}.getOrNull()}
-        if(tone!=GlassTone.SMOKED){
-            if(lens!=null && canvas.isHardwareAccelerated){
-                p.shader=lens!!.shader(texture,w,h,location[0].toFloat(),location[1].toFloat(),rect,radius)
-                canvas.drawRect(rect,p);p.shader=null
-            }else{
-                val save=canvas.save()
-                canvas.translate(-location[0].toFloat(),-location[1].toFloat())
-                canvas.drawBitmap(texture,null,RectF(0f,0f,w.toFloat(),h.toFloat()),p);canvas.restoreToCount(save)
-            }
+        if(lens!=null && canvas.isHardwareAccelerated){
+            p.shader=lens!!.shader(texture,w,h,x,y,rect,radius,c.resources.displayMetrics.density,tone.ordinal,pressure,touchX,touchY)
+            canvas.drawRect(rect,p);p.shader=null
+        }else{
+            val save=canvas.save();canvas.translate(-x,-y)
+            canvas.drawBitmap(texture,null,RectF(0f,0f,w.toFloat(),h.toFloat()),p);canvas.restoreToCount(save)
+            p.color=if(tone==GlassTone.SMOKED)0xEF242321.toInt() else 0xCFFFFFFB.toInt()
+            canvas.drawRoundRect(rect,radius,radius,p)
         }
-        val colors=when(tone){
-            GlassTone.SMOKED->intArrayOf(0xFF383532.toInt(),0xFF22211F.toInt(),0xFF2B2825.toInt())
-            GlassTone.SELECTED->intArrayOf(0xDBFFFFFF.toInt(),0x70FFE5CA,0x96FFFFFF.toInt())
-            GlassTone.FIELD->intArrayOf(0xEFFFFFFF.toInt(),0xBDFFF9F1.toInt(),0xD9FFFFFF.toInt())
-            GlassTone.CLEAR->intArrayOf(0xBAFFFFFF.toInt(),0x72FFF9F1,0xADFFFFFF.toInt())
-        }
-        p.shader=LinearGradient(rect.left,rect.top,rect.right,rect.bottom,colors,floatArrayOf(0f,.6f,1f),Shader.TileMode.CLAMP)
-        canvas.drawRoundRect(rect,radius,radius,p);p.shader=null
-        // A narrow white upper edge and warm lower edge: intentionally subdued.
-        p.style=Paint.Style.STROKE;p.strokeWidth=Ui.dp(c,1).coerceAtLeast(1).toFloat()*.6f
+        // Keep the rim quiet; the optical edge comes primarily from the shader.
+        p.style=Paint.Style.STROKE;p.strokeWidth=c.resources.displayMetrics.density*.65f
         p.shader=LinearGradient(rect.left,rect.top,rect.right,rect.bottom,
-            if(tone==GlassTone.SMOKED)intArrayOf(0x82FFFFFF.toInt(),0x08FFFFFF,0x3CFFFFFF)
-            else intArrayOf(0xEAFFFFFF.toInt(),0x38FFFFFF,0x68D5AE89),floatArrayOf(0f,.58f,1f),Shader.TileMode.CLAMP)
-        canvas.drawRoundRect(rect,radius,radius,p);p.shader=null
-        if(tone!=GlassTone.FIELD){
-            val inner=RectF(rect).apply{inset(Ui.dp(c,2).toFloat(),Ui.dp(c,2).toFloat())}
-            p.strokeWidth=1f;p.shader=LinearGradient(inner.left,inner.top,inner.left,inner.bottom,
-                intArrayOf(0x65FFFFFF,0x00FFFFFF,0x20D08B4F),null,Shader.TileMode.CLAMP)
-            canvas.drawRoundRect(inner,(radius-Ui.dp(c,2)).coerceAtLeast(1f),(radius-Ui.dp(c,2)).coerceAtLeast(1f),p);p.shader=null
-        }
-        p.style=Paint.Style.FILL;canvas.restore()
+            if(tone==GlassTone.SMOKED)intArrayOf(0x66FFFFFF,0x08FFFFFF,0x24FFFFFF)
+            else intArrayOf(0xD4FFFFFF.toInt(),0x18FFFFFF,0x35B7A797),floatArrayOf(0f,.58f,1f),Shader.TileMode.CLAMP)
+        canvas.drawRoundRect(rect,radius,radius,p);p.shader=null;p.style=Paint.Style.FILL;canvas.restore()
     }
-    override fun getOutline(outline: Outline){outline.setRoundRect(bounds,Ui.dp(c,corner).toFloat());outline.alpha=.12f}
+    override fun getOutline(outline: Outline){outline.setRoundRect(bounds,Ui.dp(c,corner).toFloat());outline.alpha=.16f}
     override fun setAlpha(alpha: Int){globalAlpha=alpha;invalidateSelf()}
     override fun setColorFilter(colorFilter: ColorFilter?){p.colorFilter=colorFilter;invalidateSelf()}
     @Deprecated("Deprecated in Java") override fun getOpacity()=PixelFormat.TRANSLUCENT
 }
 
 private interface GlassLens {
-    fun shader(bitmap: Bitmap,w: Int,h: Int,x: Float,y: Float,rect: RectF,radius: Float): Shader
+    fun shader(bitmap: Bitmap,w: Int,h: Int,x: Float,y: Float,rect: RectF,radius: Float,density: Float,tone: Int,pressure: Float,touchX: Float,touchY: Float): Shader
 }
 
 @RequiresApi(33)
@@ -124,31 +134,54 @@ private class AgslGlassLens : GlassLens {
         uniform float2 size;
         uniform float2 offset;
         uniform float2 scale;
+        uniform float2 touch;
         uniform float radius;
+        uniform float density;
+        uniform float tone;
+        uniform float pressure;
         half4 main(float2 xy) {
             float2 p=xy-origin-size*0.5;
             float2 q=abs(p)-(size*0.5-radius);
-            float d=length(max(q,0.0))+min(max(q.x,q.y),0.0)-radius;
-            float edge=1.0-smoothstep(0.0,12.0,-d);
-            float2 normal=normalize(p+float2(0.001));
-            float2 uv=(xy+offset-normal*edge*5.5)*scale;
+            float2 outside=max(q,0.0);
+            float d=length(outside)+min(max(q.x,q.y),0.0)-radius;
+            float2 n;
+            if(max(q.x,q.y)>0.0)n=normalize(outside+float2(0.0001))*sign(p);
+            else n=q.x>q.y?float2(sign(p.x),0.0):float2(0.0,sign(p.y));
+            float edge=1.0-smoothstep(0.0,12.0*density,-d);
+            float bend=edge*edge*(8.5+pressure*3.0)*density;
+            float2 uv=(xy+offset-n*bend)*scale;
+            float2 tap=float2(0.7+0.6*(1.0-edge),0.0);
             half4 color=scene.eval(uv)*0.4;
-            float2 tap=float2(1.1,0.0);
             color+=scene.eval(uv+tap)*0.15;
             color+=scene.eval(uv-tap)*0.15;
             color+=scene.eval(uv+tap.yx)*0.15;
             color+=scene.eval(uv-tap.yx)*0.15;
-            return color;
+            float luma=dot(float3(color.rgb),float3(0.2126,0.7152,0.0722));
+            float tint=clamp((0.79-luma)/max(1.0-luma,0.01),0.16,0.78);
+            if(tone>0.5 && tone<1.5)tint=max(tint,0.58);
+            if(tone>1.5 && tone<2.5)color.rgb=mix(color.rgb,half3(0.115,0.109,0.101),0.91);
+            else color.rgb=mix(color.rgb,half3(1.0,0.985,0.965),tint);
+            float2 delta=(xy-touch)/density;
+            float contact=exp(-dot(delta,delta)/2600.0)*pressure;
+            float2 light=normalize(float2(-0.55,-0.85)+(touch-origin-size*0.5)/max(size,1.0)*pressure*0.6);
+            float specular=pow(max(dot(n,light),0.0),5.0)*edge*0.13;
+            color.rgb+=half3(specular+contact*0.09);
+            return half4(clamp(color.rgb,0.0,1.0),1.0);
         }
     """.trimIndent())
     private var texture: Bitmap?=null
-    override fun shader(bitmap: Bitmap,w: Int,h: Int,x: Float,y: Float,rect: RectF,radius: Float): Shader{
-        if(texture!==bitmap){effect.setInputShader("scene",BitmapShader(bitmap,Shader.TileMode.CLAMP,Shader.TileMode.CLAMP));texture=bitmap}
+    private var generation=0
+    override fun shader(bitmap: Bitmap,w: Int,h: Int,x: Float,y: Float,rect: RectF,radius: Float,density: Float,tone: Int,pressure: Float,touchX: Float,touchY: Float): Shader{
+        if(texture!==bitmap || generation!=bitmap.generationId){effect.setInputShader("scene",BitmapShader(bitmap,Shader.TileMode.CLAMP,Shader.TileMode.CLAMP));texture=bitmap;generation=bitmap.generationId}
         effect.setFloatUniform("origin",rect.left,rect.top)
         effect.setFloatUniform("size",rect.width(),rect.height())
         effect.setFloatUniform("offset",x,y)
         effect.setFloatUniform("scale",bitmap.width.toFloat()/w,bitmap.height.toFloat()/h)
         effect.setFloatUniform("radius",radius)
+        effect.setFloatUniform("density",density)
+        effect.setFloatUniform("tone",tone.toFloat())
+        effect.setFloatUniform("pressure",pressure)
+        effect.setFloatUniform("touch",if(touchX<0)rect.centerX()else touchX,if(touchY<0)rect.centerY()else touchY)
         return effect
     }
 }

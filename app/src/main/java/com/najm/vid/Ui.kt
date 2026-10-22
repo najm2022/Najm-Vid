@@ -33,17 +33,18 @@ object Ui {
         return (if(bold)boldFont else regularFont)!!
     }
     fun glass(c: Context, radius: Int=24, tone: GlassTone=GlassTone.CLEAR) = GlassDrawable(c,radius,tone)
+    fun surface(c: Context,radius: Int=24) = GradientDrawable(GradientDrawable.Orientation.TL_BR,intArrayOf(0xEDFFFCF8.toInt(),0xD9F9F3EB.toInt())).apply{cornerRadius=dp(c,radius).toFloat();setStroke(dp(c,1).coerceAtLeast(1),0xBFFFFFFF.toInt())}
     fun dp(c: Context, v: Int) = (v*c.resources.displayMetrics.density).toInt()
     fun shape(c: Context, color: Int = card, radius: Int = 24, border: Boolean = false) = GradientDrawable().apply {
         setColor(color);cornerRadius=dp(c,radius).toFloat();if(border)setStroke(dp(c,1),line)
     }
-    fun text(c: Context, value: String, size: Float = 14f, color: Int = white, bold: Boolean = false) = TextView(c).apply {
+    fun text(c: Context, value: String, size: Float = 14f, color: Int = white, bold: Boolean = false) = LiquidTextView(c).apply {
         text=value;textSize=size;setTextColor(color);typeface=font(c,bold)
         gravity=Gravity.START or Gravity.CENTER_VERTICAL;includeFontPadding=false
         textDirection=View.TEXT_DIRECTION_FIRST_STRONG_RTL
     }
-    fun column(c: Context, padding: Int=0) = LinearLayout(c).apply { orientation=LinearLayout.VERTICAL;layoutDirection=View.LAYOUT_DIRECTION_RTL;setPadding(dp(c,padding),dp(c,padding),dp(c,padding),dp(c,padding)) }
-    fun row(c: Context) = LinearLayout(c).apply { orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;layoutDirection=View.LAYOUT_DIRECTION_RTL }
+    fun column(c: Context, padding: Int=0) = object: LinearLayout(c){override fun draw(canvas: Canvas){if(!GlassPass.skip(this))super.draw(canvas)}}.apply { orientation=LinearLayout.VERTICAL;layoutDirection=View.LAYOUT_DIRECTION_RTL;setPadding(dp(c,padding),dp(c,padding),dp(c,padding),dp(c,padding)) }
+    fun row(c: Context) = object: LinearLayout(c){override fun draw(canvas: Canvas){if(!GlassPass.skip(this))super.draw(canvas)}}.apply { orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;layoutDirection=View.LAYOUT_DIRECTION_RTL }
     fun space(c: Context, height: Int) = View(c).apply { layoutParams=LinearLayout.LayoutParams(1,dp(c,height)) }
     fun button(c: Context, label: String, primary: Boolean=true, action: () -> Unit): TextView = text(c,label,14f,if(primary)Color.WHITE else ink,true).apply {
         gravity=Gravity.CENTER;background=glass(c,26,if(primary)GlassTone.SMOKED else GlassTone.CLEAR)
@@ -70,13 +71,15 @@ object Ui {
     fun sheet(a: AppCompatActivity): Pair<BottomSheetDialog,LinearLayout> {
         (a.getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager).hideSoftInputFromWindow(a.currentFocus?.windowToken,0)
         val dialog=BottomSheetDialog(a,R.style.Theme_NajmVid_Sheet)
-        val content=column(a,22).apply{background=glass(a,28)}
+        val content=column(a,22)
         val handle=View(a).apply { background=shape(a,line,4) }
         content.addView(handle,LinearLayout.LayoutParams(dp(a,38),dp(a,4)).apply{gravity=Gravity.CENTER_HORIZONTAL;bottomMargin=dp(a,22)})
         val scroll=ScrollView(a).apply { isFillViewport=true;addView(content);isVerticalScrollBarEnabled=false }
-        dialog.setContentView(scroll)
+        scroll.setOnScrollChangeListener{_,_,_,_,_->(scroll.parent as? GlassHost)?.refreshBackdrop()}
+        val host=GlassHost(a).apply{background=surface(a,28);addView(scroll,FrameLayout.LayoutParams(-1,-2))}
+        dialog.setContentView(host)
         dialog.setOnShowListener { dialog.findViewById<android.widget.FrameLayout>(com.google.android.material.R.id.design_bottom_sheet)?.let{sheet->
-                sheet.background=SceneDrawable()
+                sheet.background=shape(a,card,28)
                 com.google.android.material.bottomsheet.BottomSheetBehavior.from(sheet).apply{skipCollapsed=true;state=com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED}
             }
             dialog.window?.let{androidx.core.view.WindowCompat.getInsetsController(it,it.decorView).isAppearanceLightNavigationBars=true} }
@@ -87,6 +90,9 @@ object Ui {
 }
 
 class Glyph(c: Context, private val symbol: String, var tint: Int = Ui.muted) : View(c) {
+    override fun draw(canvas: Canvas){if(!GlassPass.skip(this))super.draw(canvas)}
+    override fun onTouchEvent(event: MotionEvent): Boolean {GlassTouch.dispatch(this,event);return super.onTouchEvent(event)}
+    override fun performClick()=super.performClick()
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         val avail=minOf(width-paddingLeft-paddingRight,height-paddingTop-paddingBottom).toFloat()
