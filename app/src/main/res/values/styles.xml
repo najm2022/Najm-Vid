@@ -1,13 +1,35 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.NajmVid" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="android:windowBackground">#0A1112</item>
+        <item name="android:colorBackground">#0A1112</item>
+        <item name="android:statusBarColor">#0A1112</item>
+        <item name="android:navigationBarColor">#0A1112</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="colorPrimary">#B2F4CD</item>
+        <item name="colorPrimaryVariant">#007764</item>
+        <item name="colorSecondary">#B2F4CD</item>
+        <item name="colorSurface">#141E1F</item>
+        <item name="colorOnSurface">#F1F6F2</item>
+        <item name="android:textColorPrimary">#F1F6F2</item>
+        <item name="android:textColorSecondary">#8FA29B</item>
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:windowActionModeOverlay">true</item>
+    </style>
+    <style name="Theme.NajmVid.Share" parent="Theme.NajmVid">
         <item name="android:windowIsTranslucent">true</item>
         <item name="android:windowBackground">@android:color/transparent</item>
-        <item name="android:windowNoTitle">true</item>
         <item name="android:windowDisablePreview">true</item>
         <item name="android:backgroundDimEnabled">false</item>
-        <item name="colorPrimary">#007764</item>
-        <item name="colorPrimaryVariant">#005346</item>
-        <item name="colorSecondary">#007764</item>
+    </style>
+    <style name="Theme.NajmVid.Sheet" parent="Theme.MaterialComponents.DayNight.BottomSheetDialog">
+        <item name="colorPrimary">#B2F4CD</item>
+        <item name="colorSecondary">#B2F4CD</item>
+        <item name="colorSurface">#141E1F</item>
+        <item name="colorOnSurface">#F1F6F2</item>
+        <item name="android:textColorPrimary">#F1F6F2</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:navigationBarColor">#141E1F</item>
     </style>
 </resources>

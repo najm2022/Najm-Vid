@@ -13,11 +13,13 @@
         android:supportsRtl="true"
         android:extractNativeLibs="true"
         android:theme="@style/Theme.NajmVid">
-        <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop">
+        <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop" android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+        </activity>
+        <activity android:name=".ShareActivity" android:exported="true" android:launchMode="singleTop" android:theme="@style/Theme.NajmVid.Share" android:excludeFromRecents="true">
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -28,3 +30,4 @@
             android:foregroundServiceType="dataSync" android:stopWithTask="false" />
     </application>
 </manifest>
+
