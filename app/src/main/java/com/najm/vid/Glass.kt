@@ -13,7 +13,7 @@ object GlassScene {
     fun texture(w: Int, h: Int): Bitmap {
         val key="$w:$h"
         cache.get(key)?.let{return it}
-        val width=256
+        val width=384
         val height=(width*h.toFloat()/w.coerceAtLeast(1)).toInt().coerceIn(256,1024)
         return Bitmap.createBitmap(width,height,Bitmap.Config.ARGB_8888).also { draw(Canvas(it),width.toFloat(),height.toFloat());cache.put(key,it) }
     }
@@ -21,7 +21,7 @@ object GlassScene {
         val p=Paint(Paint.ANTI_ALIAS_FLAG)
         p.shader=LinearGradient(0f,0f,w,h,intArrayOf(Color.rgb(249,246,241),Color.rgb(240,230,218),Color.rgb(248,245,240)),null,Shader.TileMode.CLAMP)
         c.drawRect(0f,0f,w,h,p)
-        val x=w*.92f;val y=h*.37f;val r=w*.46f
+        val x=w*.92f;val y=h*.37f;val r=w*.38f
         p.shader=RadialGradient(x,y,r*1.30f,intArrayOf(0x36FF8B35,0x00FF8B35),null,Shader.TileMode.CLAMP)
         c.drawCircle(x,y,r*1.30f,p)
         p.shader=RadialGradient(x-r*.38f,y-r*.5f,r*1.65f,intArrayOf(0xFFFFD09A.toInt(),0xFFFFAB59.toInt(),0xFFF87C20.toInt()),floatArrayOf(0f,.48f,1f),Shader.TileMode.CLAMP)

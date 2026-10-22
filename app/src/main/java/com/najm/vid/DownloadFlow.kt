@@ -71,7 +71,7 @@ class DownloadFlow(private val a: AppCompatActivity, private val onQueued: () ->
             val image=ImageView(a).apply{scaleType=ImageView.ScaleType.CENTER_CROP;background=Ui.shape(a,Ui.raised,18);clipToOutline=true}
             box.addView(image,LinearLayout.LayoutParams(-1,Ui.dp(a,146)));Artwork.load(a,image,item);box.addView(Ui.space(a,16))
         }
-        box.addView(Ui.pill(a,VideoRules.platform(url),true));box.addView(Ui.space(a,10));box.addView(Ui.text(a,item.title,17f,bold=true).apply{maxLines=3})
+        box.addView(Ui.pill(a,VideoRules.platform(url),true),LinearLayout.LayoutParams(-2,-2));box.addView(Ui.space(a,10));box.addView(Ui.text(a,item.title,17f,bold=true).apply{maxLines=3})
         box.addView(Ui.space(a,10));box.addView(Ui.text(a,"اختر الجودة",17f,Ui.ink,true));box.addView(Ui.space(a,12))
         val group=RadioGroup(a).apply{orientation=RadioGroup.VERTICAL;layoutDirection=View.LAYOUT_DIRECTION_RTL}
         var selectedHeight=0;var audio=false
@@ -82,14 +82,14 @@ class DownloadFlow(private val a: AppCompatActivity, private val onQueued: () ->
             val size=info.formats.orEmpty().filter{it.height==height}.maxOfOrNull{maxOf(it.fileSize,it.fileSizeApproximate)}?:0
             val label=(if(height==0)"الجودة الأصلية" else "${height}p")+(if(size>0)"  ·  نحو ${Ui.bytes(size)}" else "")
             val radio=RadioButton(a).apply{
-                id=View.generateViewId();text=label;setTextColor(Ui.white);textSize=14f;buttonTintList=android.content.res.ColorStateList.valueOf(Ui.mint)
+                id=View.generateViewId();text=label;typeface=Ui.font(a);setTextColor(Ui.white);textSize=14f;buttonTintList=android.content.res.ColorStateList.valueOf(Ui.mint)
                 minHeight=Ui.dp(a,56);background=Ui.glass(a,20,GlassTone.FIELD)
                 setPadding(Ui.dp(a,12),Ui.dp(a,6),Ui.dp(a,12),Ui.dp(a,6))
                 setOnCheckedChangeListener{_,checked->if(checked){selectedHeight=height;audio=false}}
             };group.addView(radio,RadioGroup.LayoutParams(-1,-2).apply{bottomMargin=Ui.dp(a,8)});if(height==preferred&&pref!="audio")radio.isChecked=true
         }
         val mp3=RadioButton(a).apply{id=View.generateViewId();text="صوت فقط  ·  MP3";setTextColor(Ui.white);textSize=14f;minHeight=Ui.dp(a,56);background=Ui.glass(a,20,GlassTone.FIELD);setPadding(Ui.dp(a,12),Ui.dp(a,6),Ui.dp(a,12),Ui.dp(a,6));buttonTintList=android.content.res.ColorStateList.valueOf(Ui.mint);setOnCheckedChangeListener{_,checked->if(checked){audio=true;selectedHeight=0}}}
-        group.addView(mp3);if(pref=="audio")mp3.isChecked=true;box.addView(group)
+        mp3.typeface=Ui.font(a);group.addView(mp3,RadioGroup.LayoutParams(-1,-2));if(pref=="audio")mp3.isChecked=true;box.addView(group)
         box.addView(Ui.space(a,18));box.addView(Ui.action(a,"بدء التحميل","download"){sheet.dismiss();queue(url,info,selectedHeight,audio)})
         box.addView(Ui.space(a,14));box.addView(Ui.text(a,"الحفظ في: \u2066Movies/NV_${VideoRules.platform(url)}\u2069 أو \u2066Music/NV_${VideoRules.platform(url)}\u2069",11f,Ui.muted))
         sheet.setOnCancelListener{onClosed()};sheet.show()

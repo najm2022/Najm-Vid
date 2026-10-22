@@ -25,13 +25,20 @@ object Ui {
     val white = ink // Existing content uses this token for foreground text.
     val muted = Color.rgb(105,95,85)
     val danger = Color.rgb(158,48,29)
+    private var regularFont: Typeface?=null
+    private var boldFont: Typeface?=null
+    fun font(c: Context,bold: Boolean=false): Typeface {
+        if(regularFont==null)regularFont=Typeface.createFromAsset(c.assets,"fonts/NotoSansArabic-Regular.ttf")
+        if(boldFont==null)boldFont=Typeface.createFromAsset(c.assets,"fonts/NotoSansArabic-SemiBold.ttf")
+        return (if(bold)boldFont else regularFont)!!
+    }
     fun glass(c: Context, radius: Int=24, tone: GlassTone=GlassTone.CLEAR) = GlassDrawable(c,radius,tone)
     fun dp(c: Context, v: Int) = (v*c.resources.displayMetrics.density).toInt()
     fun shape(c: Context, color: Int = card, radius: Int = 24, border: Boolean = false) = GradientDrawable().apply {
         setColor(color);cornerRadius=dp(c,radius).toFloat();if(border)setStroke(dp(c,1),line)
     }
     fun text(c: Context, value: String, size: Float = 14f, color: Int = white, bold: Boolean = false) = TextView(c).apply {
-        text=value;textSize=size;setTextColor(color);typeface=Typeface.create("sans-serif",if(bold)Typeface.BOLD else Typeface.NORMAL)
+        text=value;textSize=size;setTextColor(color);typeface=font(c,bold)
         gravity=Gravity.START or Gravity.CENTER_VERTICAL;includeFontPadding=false
         textDirection=View.TEXT_DIRECTION_FIRST_STRONG_RTL
     }

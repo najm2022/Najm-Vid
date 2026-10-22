@@ -43,7 +43,7 @@ class MainActivity : AppCompatActivity() {
         flow=DownloadFlow(this,{draft="";urlInput?.setText("");selectPage("downloads");Ui.toast(this,"بدأ التحميل")},{})
         root=Ui.column(this).apply{background=SceneDrawable();tag="app_root"}
         body=FrameLayout(this);root.addView(body,LinearLayout.LayoutParams(-1,0,1f))
-        nav=Ui.row(this).apply{background=Ui.glass(this@MainActivity,28);setPadding(Ui.dp(context,6),Ui.dp(context,6),Ui.dp(context,6),Ui.dp(context,6))}
+        nav=Ui.row(this).apply{background=Ui.glass(this@MainActivity,28);elevation=Ui.dp(context,3).toFloat();setPadding(Ui.dp(context,6),Ui.dp(context,6),Ui.dp(context,6),Ui.dp(context,6))}
         root.addView(nav,LinearLayout.LayoutParams(-1,Ui.dp(this,72)).apply{setMargins(Ui.dp(this@MainActivity,18),Ui.dp(this@MainActivity,8),Ui.dp(this@MainActivity,18),Ui.dp(this@MainActivity,10))})
         ViewCompat.setOnApplyWindowInsetsListener(root){v,insets->val bars=insets.getInsets(WindowInsetsCompat.Type.systemBars());v.setPadding(bars.left,bars.top,bars.right,maxOf(bars.bottom,insets.getInsets(WindowInsetsCompat.Type.ime()).bottom));insets}
         setContentView(root)
@@ -95,7 +95,7 @@ class MainActivity : AppCompatActivity() {
         box.addView(Ui.space(this,24))
         box.addView(Ui.text(this,"احفظ ما يستحق\nالمشاهدة.",if(resources.configuration.screenWidthDp<=360)29f else 33f,Ui.ink,true).apply{setLineSpacing(Ui.dp(context,3).toFloat(),1.04f)})
         box.addView(Ui.space(this,20))
-        val entry=Ui.column(this,18).apply{background=Ui.glass(this@MainActivity,28)}
+        val entry=Ui.column(this,18).apply{background=Ui.glass(this@MainActivity,28);elevation=Ui.dp(context,2).toFloat()}
         val title=Ui.row(this);title.addView(Ui.text(this,"رابط جديد",17f,bold=true),LinearLayout.LayoutParams(0,-2,1f));title.addView(Glyph(this,"download",Ui.mint),LinearLayout.LayoutParams(Ui.dp(this,21),Ui.dp(this,21)));entry.addView(title);entry.addView(Ui.space(this,15))
         val inputRow=Ui.row(this).apply{background=Ui.glass(this@MainActivity,28,GlassTone.FIELD);setPadding(Ui.dp(context,12),Ui.dp(context,4),Ui.dp(context,12),Ui.dp(context,4))}
         val paste=Ui.text(this,"لصق",12f,Ui.ink,true).apply{gravity=Gravity.CENTER;background=Ui.glass(this@MainActivity,24);minHeight=Ui.dp(context,48);minWidth=Ui.dp(context,48);tag="paste_button";isClickable=true;isFocusable=true;setOnClickListener{
@@ -105,7 +105,7 @@ class MainActivity : AppCompatActivity() {
         }}
         inputRow.addView(paste)
         val input=EditText(this).apply{
-            tag="url_input";hint="ألصق رابط الفيديو هنا";textSize=12f;setTextColor(Ui.white);setHintTextColor(Ui.muted);background=null
+            tag="url_input";hint="ألصق رابط الفيديو هنا";textSize=12f;typeface=Ui.font(context);setTextColor(Ui.white);setHintTextColor(Ui.muted);background=null
             inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_URI
             maxLines=2;minHeight=Ui.dp(context,54);imeOptions=EditorInfo.IME_ACTION_GO;textDirection=View.TEXT_DIRECTION_FIRST_STRONG_RTL
             setOnEditorActionListener{_,action,_->if(action==EditorInfo.IME_ACTION_GO){inspectInput();true}else false}
@@ -132,7 +132,7 @@ class MainActivity : AppCompatActivity() {
     private fun downloads(box: LinearLayout){
         header(box,"التحميلات","مكتبتك، بترتيبك.")
         val searchInput=EditText(this).apply{
-            tag="library_search";hint="البحث في التحميلات";textSize=13f;setTextColor(Ui.ink);setHintTextColor(Ui.muted)
+            tag="library_search";hint="البحث في التحميلات";textSize=13f;typeface=Ui.font(context);setTextColor(Ui.ink);setHintTextColor(Ui.muted)
             background=Ui.glass(this@MainActivity,28,GlassTone.FIELD);setPadding(Ui.dp(context,17),0,Ui.dp(context,17),0)
             isSingleLine=true;minHeight=Ui.dp(context,52);setText(search)
             addTextChangedListener(object: android.text.TextWatcher{
