@@ -55,14 +55,14 @@ class DownloadSmokeTest {
         val url = "http://127.0.0.1:${server.localPort}/$marker.mp4"
         try {
             if (Build.VERSION.SDK_INT >= 33) {
-                instrumentation.uiAutomation.executeShellCommand("pm grant ${context.packageName} android.permission.POST_NOTIFICATIONS").close()
+                instrumentation.uiAutomation.executeShellCommand("pm grant ${context.packageName} android.permission.POST_NOTIFICATIONS").use { fd -> android.os.ParcelFileDescriptor.AutoCloseInputStream(fd).use { it.readBytes() } }
             }
             // Keep this integration test deterministic and offline after dependency installation.
             context.getSharedPreferences("engine", Context.MODE_PRIVATE).edit().putLong("updated", System.currentTimeMillis()).commit()
             resetStatus(context)
-            val share = Intent(context, MainActivity::class.java).setAction(Intent.ACTION_SEND)
+            val share = Intent(context, ShareActivity::class.java).setAction(Intent.ACTION_SEND)
                 .setType("text/plain").putExtra(Intent.EXTRA_TEXT, "Test video: $url")
-            ActivityScenario.launch<MainActivity>(share).use {
+            ActivityScenario.launch<ShareActivity>(share).use {
                 awaitSave(context, "Movies/NV_General")
                 verifyAndDelete(context, MediaStore.Video.Media.EXTERNAL_CONTENT_URI, marker, "Movies/NV_General/")
             }
@@ -116,3 +116,4 @@ class DownloadSmokeTest {
         }
     }
 }
+
