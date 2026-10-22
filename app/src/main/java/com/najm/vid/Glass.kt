@@ -178,7 +178,11 @@ private class AgslGlassLens : GlassLens {
     private var texture: Bitmap?=null
     private var generation=0
     override fun shader(bitmap: Bitmap,w: Int,h: Int,x: Float,y: Float,rect: RectF,radius: Float,density: Float,tone: Int,pressure: Float,touchX: Float,touchY: Float): Shader{
-        if(texture!==bitmap || generation!=bitmap.generationId){effect.setInputShader("scene",BitmapShader(bitmap,Shader.TileMode.CLAMP,Shader.TileMode.CLAMP));texture=bitmap;generation=bitmap.generationId}
+        if(texture!==bitmap || generation!=bitmap.generationId){
+            // RuntimeShader inputs otherwise default to nearest, regardless of Paint filtering.
+            val source=BitmapShader(bitmap,Shader.TileMode.CLAMP,Shader.TileMode.CLAMP).apply{setFilterMode(BitmapShader.FILTER_MODE_LINEAR)}
+            effect.setInputShader("scene",source);texture=bitmap;generation=bitmap.generationId
+        }
         effect.setFloatUniform("origin",rect.left,rect.top)
         effect.setFloatUniform("size",rect.width(),rect.height())
         effect.setFloatUniform("offset",x,y)
