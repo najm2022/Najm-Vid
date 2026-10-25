@@ -1,0 +1,56 @@
+name: YouTube APK runtime verification
+on:
+  workflow_dispatch:
+    inputs:
+      apk_url:
+        description: HTTPS download URL for the exact APK (no account credentials)
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  runtime:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Download and verify APK and fetch GmsCore
+        env:
+          APK_URL: ${{ inputs.apk_url }}
+        run: |
+          python - <<'PY'
+          import hashlib, json, os, urllib.request
+          url = os.environ['APK_URL']
+          if not url.startswith('https://'): raise SystemExit('HTTPS required')
+          urllib.request.urlretrieve(url, 'youtube.apk')
+          actual = hashlib.file_digest(open('youtube.apk','rb'), 'sha256').hexdigest()
+          assert actual == '01b9bf819bf25a7752d1dd7828ea359d5ad1108128fbd91face5ad5bb3c918cf', 'Wrong APK'
+          release = json.load(urllib.request.urlopen('https://api.github.com/repos/ReVanced/GmsCore/releases/latest'))
+          assets = [a for a in release['assets'] if a['name'].endswith('.apk') and 'huawei' not in a['name'].lower()]
+          assert len(assets) == 1, 'Select GmsCore asset explicitly if upstream assets change'
+          urllib.request.urlretrieve(assets[0]['browser_download_url'], 'gmscore.apk')
+          print('APK checksum verified; GmsCore:', release['tag_name'], assets[0]['name'])
+          PY
+          pip install uiautomator2==3.5.0
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: python .github/scripts/youtube-runtime.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: youtube-runtime-evidence
+          path: youtube-results/
+          retention-days: 7
